@@ -1,7 +1,12 @@
+import AuthLayout from "@/components/authLayout"
+
 export default function Dashboard() {
     return(
-        <>
-        Dashboard page
-        </>
+        <AuthLayout>
+            <div>
+                auth Dashboard
+            </div>
+        </AuthLayout>
+            
     )
 }

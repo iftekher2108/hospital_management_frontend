@@ -1,4 +1,6 @@
 import { Html, Head, Main, NextScript } from 'next/document'
+import "../globals.css";
+import "@fortawesome/fontawesome-free/css/all.min.css"
 
 export default function Document() {
   return (

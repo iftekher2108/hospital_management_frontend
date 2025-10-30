@@ -1,2 +1,21 @@
 @import "tailwindcss";
 @plugin "daisyui";
+
+
+
+
+.icon {
+    @apply size-8 rounded relative bg-primary text-white
+}
+
+.icon i {
+    @apply absolute top-[50%] left-[50%] translate-[-50%]
+}
+
+.menu .active{
+    @apply bg-primary 
+}
+
+.menu .active .icon{
+    @apply bg-base-200
+}

@@ -33,9 +33,9 @@ export default function AuthLayout({ children }) {
   return (
     <>
       <Header />
-      <div className="grid grid-cols-12 gap-4">
+      <div className="grid grid-cols-12 gap-4 my-2">
         <div className="col-span-3">
-          <div className="card p-3 shadow">
+          <div className="card bg-base-200 p-3 shadow">
             <Sidebar />
           </div>
         </div>

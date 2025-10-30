@@ -14,7 +14,7 @@ const handleLogout = () => {
 
 
     return (
-        <div className="navbar bg-base-100 shadow-sm p-3">
+        <div className="navbar sticky top-0 z-50 bg-base-100 shadow-sm p-3">
             <div className="flex-1">
                 <a className="btn btn-ghost text-xl">daisyUI</a>
             </div>
@@ -45,12 +45,12 @@ const handleLogout = () => {
                         className="menu menu-sm dropdown-content bg-base-100 rounded-box z-1 mt-3 w-52 p-2 shadow">
                         <li>
                             <a className="p-2">
-                               <i class="fa-solid me-1 fa-user"></i> Profile
+                               <i className="fa-solid me-1 fa-user"></i> Profile
                                 {/* <span className="badge">New</span> */}
                             </a>
                         </li>
-                        <li><a className="p-2"><i class="fa-solid me-1 fa-sliders"></i> Settings</a></li>
-                        <li><button onClick={()=> handleLogout()} className="p-2"><i class="fa-solid me-1 fa-arrow-right-from-bracket"></i> Logout</button></li>
+                        <li><a className="p-2"><i className="fa-solid me-1 fa-sliders"></i> Settings</a></li>
+                        <li><button onClick={()=> handleLogout()} className="p-2"><i className="fa-solid me-1 fa-arrow-right-from-bracket"></i> Logout</button></li>
                     </ul>
                 </div>
             </div>

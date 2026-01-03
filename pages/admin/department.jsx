@@ -2,7 +2,7 @@
 import AuthLayout from "@/components/authLayout"
 import Pagination from "@/components/pagination"
 import getToken from "@/lib/getToken"
-import { Fetch } from "@/lib/fetch"
+import { baseUrl } from "@/lib/base_url"
 import { useCallback, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 export default function Department() {
@@ -13,34 +13,19 @@ export default function Department() {
     const page = searchParams.get('page') || 1;
     const limit = searchParams.get('limit') || 10;
 
-    const [formdata, setFormData] = useState({
-        id: null,
-        name: '',
-        picture: null,
-        code: '',
-        description: '',
-        floor: '',
-        roomNumber: '',
-        headDoctor: '',
-        email: '',
-        phone: '',
-        totalStaff: '',
-        totalBeds: '',
-        status: '',
-    })
 
     // 3. Single handler function for all *top-level* fields
-    const handleChange = (e) => {
-        const { name, value } = e.target;
+    // const handleChange = (e) => {
+    //     const { name, value } = e.target;
 
-        console.log(`${name} = `,value)
-        // Use the spread operator (...) to keep all existing fields
-        // and only update the field matching the input's 'name'
-        setFormData(prevData => ({
-            ...prevData,
-            [name]: value, // This updates the specific top-level field (e.g., 'name', 'code')
-        }));
-    };
+    //     console.log(`${name} = `, value)
+    //     // Use the spread operator (...) to keep all existing fields
+    //     // and only update the field matching the input's 'name'
+    //     setFormData(prevData => ({
+    //         ...prevData,
+    //         [name]: value, // This updates the specific top-level field (e.g., 'name', 'code')
+    //     }));
+    // };
 
     // 4. Dedicated handler function for *nested* fields (address)
     // const handleAddressChange = (e) => {
@@ -57,8 +42,8 @@ export default function Department() {
     // };
 
     const getDepartment = useCallback(async () => {
-        const token = await getToken()
-        const res = await Fetch(`/api/departments?page=${page}&limit=${limit}`, {
+        const token = getToken()
+        const res = await fetch(`${baseUrl}/api/departments?page=${page}&limit=${limit}`, {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",
@@ -67,10 +52,10 @@ export default function Department() {
         })
         const { data } = await res.json()
         setDepartments(data.data)
-    })
+    },[page, limit])
 
     useEffect(() => {
-        getDepartment()
+        getDepartment();
     }, [getDepartment])
 
     const modelOpen = async (id = null) => {
@@ -78,11 +63,10 @@ export default function Department() {
             document.getElementById('department-store').setAttribute('open', true)
         } else {
             document.getElementById('department-store').setAttribute('open', true)
-            const token = await getToken();
-            const res = await Fetch(`/api/departments/${id}`, {
+            const token = getToken();
+            const res = await fetch(`${baseUrl}/api/departments/${id}`, {
                 method: "GET",
                 headers: {
-                    "Content-Type": "application/json",
                     "Authorization": "Bearer " + token
                 }
             })
@@ -93,8 +77,25 @@ export default function Department() {
     }
 
 
-    function handleSubmit() {
+    const handleSubmit = async(e) => {
+        e.preventDefault()
+        // if (id == null) {
+        //     document.getElementById('department-store').setAttribute('open', true)
+        // } else {
+        // document.getElementById('department-store').setAttribute('open', true)
+        const token = getToken();
+        const formdata = new FormData(e.currentTarget)
+        const res = await fetch(`${baseUrl}/api/departments`, {
+            method: "POST",
+            body: formdata,
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        })
+        const data = await res.json()
+        console.log(data.success)
 
+        // }
     }
 
 
@@ -111,64 +112,72 @@ export default function Department() {
 
                     <span className="font-bold py-2 px-4  rounded text-white bg-primary text-lg">Department</span>
                     <div className="p-2 mt-2">
-                        <div className="grid grid-cols-2 gap-2">
-                            <div className="col-span-1 form-control my-2">
-                                <label className="floating-label">
-                                    <input type="text" name="name" onChange={handleChange} className="input w-full input-lg focus:input-primary focus:outline-0" />
-                                    <span>Name <span className="text-error">*</span></span>
-                                </label>
-                                {formdata.name}
+                        <form onSubmit={handleSubmit} method="POST" encType="multipart/form-data">
+
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="col-span-1 form-control my-2">
+                                    <label className="floating-label">
+                                        <input type="text" name="name"
+                                        //  onChange={handleChange} 
+                                         className="input w-full input-lg focus:input-primary focus:outline-0" />
+                                        <span>Name <span className="text-error">*</span></span>
+                                    </label>
+                                </div>
+
+                                <div className="col-span-1 form-control my-2">
+                                    <label className="floating-label">
+                                        <input type="text"
+                                        // onChange={handleChange}
+                                         name="code" className="input w-full input-lg focus:input-primary focus:outline-0" />
+                                        <span>Code <span className="text-error">*</span></span>
+                                    </label>
+                                </div>
+
+                                <div className="col-span-2 form-control mb-3">
+                                    <p className="text-sm">Pick a file</p>
+                                    <input type="file" name="picture" className="file-input w-full focus:file-input-primary focus:outline-0" />
+                                    <p className="text-xs">Max size 2MB</p>
+                                </div>
+
+                                <div className="col-span-2 form-control mb-2">
+                                    <label className="floating-label">
+                                        <textarea type="text" name="description" className="textarea w-full textarea-lg textarea-primary focus:outline-0" />
+                                        <span>Description</span>
+                                    </label>
+                                </div>
+
+                                <div className="col-span-1 form-control my-2">
+                                    <label className="floating-label">
+                                        <input type="email"
+                                        //  onChange={handleChange}
+                                          name="email" className="input w-full input-lg focus:input-primary focus:outline-0" />
+                                        <span>Email <span className="text-error">*</span></span>
+                                    </label>
+                                </div>
+
+                                <div className="col-span-1 form-control my-2">
+                                    <label className="floating-label">
+                                        <input type="number"
+                                        //  onChange={handleChange} 
+                                         name="phone" className="input w-full input-lg focus:input-primary focus:outline-0" />
+                                        <span>Phone <span className="text-error">*</span></span>
+                                    </label>
+                                </div>
+
+                                <div className="col-span-2 form-control mb-2">
+                                    <select defaultValue="Status" name="status"
+                                    //  onChange={handleChange} 
+                                     className="select w-full select-primary focus:outline-0">
+                                        <option value={'active'}>Active</option>
+                                        <option value={'inactive'}>Inactive</option>
+                                    </select>
+                                </div>
+
                             </div>
-
-                            <div className="col-span-1 form-control my-2">
-                                <label className="floating-label">
-                                    <input type="text" onChange={handleChange} name="code" className="input w-full input-lg focus:input-primary focus:outline-0" />
-                                    <span>Code <span className="text-error">*</span></span>
-                                </label>
-                                {formdata.code}
+                            <div className="flex justify-end mt-3">
+                                <button type="submit" className="btn px-8 btn-primary">Submit</button>
                             </div>
-
-                            <div className="col-span-2 form-control mb-3">
-                                <p className="text-sm">Pick a file</p>
-                                <input type="file" name="picture" className="file-input w-full focus:file-input-primary focus:outline-0" />
-                                <p className="text-xs">Max size 2MB</p>
-                            </div>
-
-                            <div className="col-span-2 form-control mb-2">
-                                <label className="floating-label">
-                                    <textarea type="text" className="textarea w-full textarea-lg textarea-primary focus:outline-0" />
-                                    <span>Description</span>
-                                </label>
-                            </div>
-
-                            <div className="col-span-1 form-control my-2">
-                                <label className="floating-label">
-                                    <input type="email" onChange={handleChange} name="email" className="input w-full input-lg focus:input-primary focus:outline-0" />
-                                    <span>Email <span className="text-error">*</span></span>
-                                </label>
-
-                            </div>
-
-                            <div className="col-span-1 form-control my-2">
-                                <label className="floating-label">
-                                    <input type="number" onChange={handleChange} name="phone" className="input w-full input-lg focus:input-primary focus:outline-0" />
-                                    <span>Phone <span className="text-error">*</span></span>
-                                </label>
-                                {formdata.phone}
-                            </div>
-
-                            <div className="col-span-2 form-control mb-2">
-                                <select defaultValue="Status" name="status" onChange={handleChange} className="select w-full select-primary focus:outline-0">
-                                    <option value={'active'}>Active</option>
-                                    <option value={'inactive'}>Inactive</option>
-                                </select>
-                                {formdata.status}
-                            </div>
-
-                        </div>
-                        <div className="flex justify-end mt-3">
-                            <button className="btn px-8 btn-primary">Submit</button>
-                        </div>
+                        </form>
                     </div>
 
                 </div>
@@ -181,7 +190,7 @@ export default function Department() {
                         <tr className="bg-primary">
                             <th>Sl</th>
                             <th>Name</th>
-                            <th>department Head</th>
+                            {/* <th>department Head</th> */}
                             <th>Email</th>
                             <th>Phone</th>
                             <th>Action</th>
@@ -192,7 +201,7 @@ export default function Department() {
                             <tr key={department.id}>
                                 <td>{i + 1}</td>
                                 <td>{department.name}</td>
-                                <td>{department?.headDoctor?.name}</td>
+                                {/* <td>{department?.headDoctor?.name}</td> */}
                                 <td>{department.email}</td>
                                 <td>{department.phone}</td>
                                 <td>

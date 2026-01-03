@@ -1,7 +1,7 @@
 "use client"
 import AuthCheck from "@/lib/authCheck"
 import { useEffect, useState } from "react"
-import { Fetch } from "@/lib/fetch"
+import { baseUrl } from "@/lib/base_url"
 import { useRouter } from "next/navigation"
 import GuestLayout from "@/components/guestLayout"
 
@@ -13,8 +13,9 @@ export default function Login() {
     const router = useRouter();
     const payload = { email, password }
 
+
     const handleLogin = async () => {
-        const res = await Fetch('/api/auth/login', {
+        const res = await fetch(`${baseUrl}/api/auth/login`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"

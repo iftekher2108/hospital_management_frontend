@@ -3,194 +3,304 @@ import AuthLayout from "@/components/authLayout"
 import Pagination from "@/components/pagination"
 import getToken from "@/lib/getToken"
 import { baseUrl } from "@/lib/base_url"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, useRef } from "react"
 import { useSearchParams } from "next/navigation"
+
 export default function Department() {
-    const [model, setModel] = useState(false)
     const [departments, setDepartments] = useState([])
+    const [paginationData, setPaginationData] = useState(null)
+    const [editingId, setEditingId] = useState(null)
+    const [message, setMessage] = useState(null)
+    const formRef = useRef(null)
     const searchParams = useSearchParams()
-    // const [page, setPage] = useState(1);
-    const page = searchParams.get('page') || 1;
-    const limit = searchParams.get('limit') || 10;
-
-
-    // 3. Single handler function for all *top-level* fields
-    // const handleChange = (e) => {
-    //     const { name, value } = e.target;
-
-    //     console.log(`${name} = `, value)
-    //     // Use the spread operator (...) to keep all existing fields
-    //     // and only update the field matching the input's 'name'
-    //     setFormData(prevData => ({
-    //         ...prevData,
-    //         [name]: value, // This updates the specific top-level field (e.g., 'name', 'code')
-    //     }));
-    // };
-
-    // 4. Dedicated handler function for *nested* fields (address)
-    // const handleAddressChange = (e) => {
-    //     const { name, value } = e.target;
-
-    //     // Use nested spread operators:
-    //     setFormData(prevData => ({
-    //         ...prevData,           // 1. Keep all top-level fields (name, code, etc.)
-    //         address: {             // 2. Target the 'address' object
-    //             ...prevData.address, // 3. Keep all existing address fields (first_add, secound_add)
-    //             [name]: value,     // 4. Update the specific address field
-    //         }
-    //     }));
-    // };
+    const page = searchParams.get('page') || 1
+    const limit = searchParams.get('limit') || 10
 
     const getDepartment = useCallback(async () => {
         const token = getToken()
         const res = await fetch(`${baseUrl}/api/departments?page=${page}&limit=${limit}`, {
             method: "GET",
             headers: {
-                "Content-Type": "application/json",
                 "Authorization": "Bearer " + token
             }
         })
         const { data } = await res.json()
-        setDepartments(data.data)
-    },[page, limit])
+        if (data) {
+            setDepartments(data.data || [])
+            setPaginationData(data)
+        }
+    }, [page, limit])
 
     useEffect(() => {
-        getDepartment();
+        getDepartment()
     }, [getDepartment])
 
-    const modelOpen = async (id = null) => {
-        if (id == null) {
-            document.getElementById('department-store').setAttribute('open', true)
-        } else {
-            document.getElementById('department-store').setAttribute('open', true)
-            const token = getToken();
+    const openModal = async (id = null) => {
+        setEditingId(id)
+        setMessage(null)
+        const modal = document.getElementById('department-store')
+        
+        // Reset form
+        if (formRef.current) {
+            formRef.current.reset()
+            // Clear file input
+            const fileInput = formRef.current.querySelector('[name="picture"]')
+            if (fileInput) {
+                fileInput.value = ''
+            }
+            // Remove picture previews
+            const preview = document.getElementById('department-picture-preview')
+            if (preview) {
+                preview.src = ''
+                preview.style.display = 'none'
+            }
+            const currentPreview = document.getElementById('department-current-picture')
+            if (currentPreview && currentPreview.parentElement) {
+                currentPreview.parentElement.remove()
+            }
+        }
+        
+        if (id) {
+            // Edit mode - populate form
+            modal.setAttribute('open', true)
+            const token = getToken()
             const res = await fetch(`${baseUrl}/api/departments/${id}`, {
                 method: "GET",
                 headers: {
                     "Authorization": "Bearer " + token
                 }
             })
-            const data = await res.json()
-            console.log(data)
-
+            const { department } = await res.json()
+            if (department && formRef.current) {
+                formRef.current.querySelector('[name="name"]').value = department.name || ''
+                formRef.current.querySelector('[name="code"]').value = department.code || ''
+                formRef.current.querySelector('[name="description"]').value = department.description || ''
+                formRef.current.querySelector('[name="email"]').value = department.email || ''
+                formRef.current.querySelector('[name="phone"]').value = department.phone || ''
+                formRef.current.querySelector('[name="status"]').value = department.status || 'active'
+                
+                // Show current picture if exists
+                if (department.picture) {
+                    const fileInput = formRef.current.querySelector('[name="picture"]')
+                    if (fileInput && fileInput.parentElement) {
+                        const div = document.createElement('div')
+                        div.className = 'mt-2'
+                        div.innerHTML = `<p class="text-xs mb-1">Current Picture:</p>`
+                        const img = document.createElement('img')
+                        img.id = 'department-current-picture'
+                        img.src = `${baseUrl}/public/${department.picture}`
+                        img.className = 'w-20 h-20 object-cover rounded'
+                        img.alt = 'Current'
+                        div.appendChild(img)
+                        fileInput.parentElement.appendChild(div)
+                    }
+                }
+            }
+        } else {
+            // Add mode
+            modal.setAttribute('open', true)
         }
     }
 
+    const closeModal = () => {
+        document.getElementById('department-store').removeAttribute('open')
+        setEditingId(null)
+        // setMessage(null)
+    }
 
-    const handleSubmit = async(e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault()
-        // if (id == null) {
-        //     document.getElementById('department-store').setAttribute('open', true)
-        // } else {
-        // document.getElementById('department-store').setAttribute('open', true)
-        const token = getToken();
+        setMessage(null)
+        const token = getToken()
         const formdata = new FormData(e.currentTarget)
-        const res = await fetch(`${baseUrl}/api/departments`, {
-            method: "POST",
-            body: formdata,
+        
+        try {
+            const url = editingId 
+                ? `${baseUrl}/api/departments/${editingId}`
+                : `${baseUrl}/api/departments`
+            const method = editingId ? 'PUT' : 'POST'
+
+            const res = await fetch(url, {
+                method: method,
+                body: formdata,
+                headers: {
+                    "Authorization": "Bearer " + token
+                }
+            })
+            const data = await res.json()
+            
+            if (res.ok) {
+                setMessage(data.success || "Operation successful")
+                setTimeout(() => {
+                    closeModal()
+                    getDepartment()
+                }, 1000)
+            } else {
+                setMessage(data.message || "Operation failed")
+            }
+        } catch (error) {
+            setMessage("An error occurred")
+        }
+    }
+
+    const handleDelete = async (id) => {
+        if (!confirm("Are you sure you want to delete this department?")) return
+        
+        const token = getToken()
+        const res = await fetch(`${baseUrl}/api/departments/${id}`, {
+            method: "DELETE",
             headers: {
                 "Authorization": "Bearer " + token
             }
         })
         const data = await res.json()
-        console.log(data.success)
-
-        // }
+        
+        if (res.ok) {
+            setMessage("Department deleted successfully")
+            getDepartment()
+        } else {
+            setMessage(data.message || "Delete failed")
+        }
     }
-
 
     return (
         <AuthLayout>
-            <div className="flex justify-between">
+            <div className="flex justify-between mb-4">
                 <h2 className="text-xl font-bold">Department</h2>
-                <button onClick={() => modelOpen()} className="btn btn-primary"><i className="fa-solid fa-plus"></i> Add Department</button>
+                <button onClick={() => openModal()} className="btn btn-primary">
+                    <i className="fa-solid fa-plus"></i> Add Department
+                </button>
             </div>
+
+            {message && (
+                <div role="alert" className={`alert mb-4 ${message.includes('success') || message.includes('Success') ? 'alert-success' : 'alert-error'}`}>
+                    <span>{message}</span>
+                </div>
+            )}
+
             <dialog id="department-store" className="modal">
-                <div className="modal-box max-w-3/5">
-
-                    <button onClick={() => document.getElementById('department-store').removeAttribute('open')} className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-
-                    <span className="font-bold py-2 px-4  rounded text-white bg-primary text-lg">Department</span>
-                    <div className="p-2 mt-2">
-                        <form onSubmit={handleSubmit} method="POST" encType="multipart/form-data">
-
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="col-span-1 form-control my-2">
-                                    <label className="floating-label">
-                                        <input type="text" name="name"
-                                        //  onChange={handleChange} 
-                                         className="input w-full input-lg focus:input-primary focus:outline-0" />
-                                        <span>Name <span className="text-error">*</span></span>
-                                    </label>
-                                </div>
-
-                                <div className="col-span-1 form-control my-2">
-                                    <label className="floating-label">
-                                        <input type="text"
-                                        // onChange={handleChange}
-                                         name="code" className="input w-full input-lg focus:input-primary focus:outline-0" />
-                                        <span>Code <span className="text-error">*</span></span>
-                                    </label>
-                                </div>
-
-                                <div className="col-span-2 form-control mb-3">
-                                    <p className="text-sm">Pick a file</p>
-                                    <input type="file" name="picture" className="file-input w-full focus:file-input-primary focus:outline-0" />
-                                    <p className="text-xs">Max size 2MB</p>
-                                </div>
-
-                                <div className="col-span-2 form-control mb-2">
-                                    <label className="floating-label">
-                                        <textarea type="text" name="description" className="textarea w-full textarea-lg textarea-primary focus:outline-0" />
-                                        <span>Description</span>
-                                    </label>
-                                </div>
-
-                                <div className="col-span-1 form-control my-2">
-                                    <label className="floating-label">
-                                        <input type="email"
-                                        //  onChange={handleChange}
-                                          name="email" className="input w-full input-lg focus:input-primary focus:outline-0" />
-                                        <span>Email <span className="text-error">*</span></span>
-                                    </label>
-                                </div>
-
-                                <div className="col-span-1 form-control my-2">
-                                    <label className="floating-label">
-                                        <input type="number"
-                                        //  onChange={handleChange} 
-                                         name="phone" className="input w-full input-lg focus:input-primary focus:outline-0" />
-                                        <span>Phone <span className="text-error">*</span></span>
-                                    </label>
-                                </div>
-
-                                <div className="col-span-2 form-control mb-2">
-                                    <select defaultValue="Status" name="status"
-                                    //  onChange={handleChange} 
-                                     className="select w-full select-primary focus:outline-0">
-                                        <option value={'active'}>Active</option>
-                                        <option value={'inactive'}>Inactive</option>
-                                    </select>
-                                </div>
-
+                <div className="modal-box max-w-3xl">
+                    <button onClick={closeModal} className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+                    <h3 className="font-bold text-lg mb-4">
+                        {editingId ? 'Edit Department' : 'Add New Department'}
+                    </h3>
+                    
+                    <form ref={formRef} onSubmit={handleSubmit} method="POST" encType="multipart/form-data">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="form-control">
+                                <label className="floating-label">
+                                    <input 
+                                        type="text" 
+                                        name="name"
+                                        required
+                                        className="input w-full input-lg focus:input-primary focus:outline-0" 
+                                    />
+                                    <span>Name <span className="text-error">*</span></span>
+                                </label>
                             </div>
-                            <div className="flex justify-end mt-3">
-                                <button type="submit" className="btn px-8 btn-primary">Submit</button>
-                            </div>
-                        </form>
-                    </div>
 
+                            <div className="form-control">
+                                <label className="floating-label">
+                                    <input 
+                                        type="text"
+                                        name="code" 
+                                        required
+                                        className="input w-full input-lg focus:input-primary focus:outline-0" 
+                                    />
+                                    <span>Code <span className="text-error">*</span></span>
+                                </label>
+                            </div>
+
+                            <div className="col-span-2 form-control">
+                                <p className="text-sm mb-2">Picture</p>
+                                <input 
+                                    type="file" 
+                                    name="picture" 
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                        const file = e.target.files[0]
+                                        if (file) {
+                                            const reader = new FileReader()
+                                            reader.onloadend = () => {
+                                                const preview = document.getElementById('department-picture-preview')
+                                                if (preview) {
+                                                    preview.src = reader.result
+                                                    preview.style.display = 'block'
+                                                }
+                                            }
+                                            reader.readAsDataURL(file)
+                                        }
+                                    }}
+                                    className="file-input w-full focus:file-input-primary focus:outline-0" 
+                                />
+                                <p className="text-xs mt-1">Max size 2MB</p>
+                                <img 
+                                    id="department-picture-preview"
+                                    src="" 
+                                    alt="Preview" 
+                                    className="w-20 h-20 object-cover rounded mt-2 hidden"
+                                />
+                            </div>
+
+                            <div className="col-span-2 form-control">
+                                <label className="floating-label">
+                                    <textarea 
+                                        name="description" 
+                                        className="textarea w-full textarea-lg textarea-primary focus:outline-0" 
+                                    />
+                                    <span>Description</span>
+                                </label>
+                            </div>
+
+                            <div className="form-control">
+                                <label className="floating-label">
+                                    <input 
+                                        type="email"
+                                        name="email" 
+                                        className="input w-full input-lg focus:input-primary focus:outline-0" 
+                                    />
+                                    <span>Email</span>
+                                </label>
+                            </div>
+
+                            <div className="form-control">
+                                <label className="floating-label">
+                                    <input 
+                                        type="text"
+                                        name="phone" 
+                                        className="input w-full input-lg focus:input-primary focus:outline-0" 
+                                    />
+                                    <span>Phone</span>
+                                </label>
+                            </div>
+
+                            <div className="form-control">
+                                <select 
+                                    name="status"
+                                    defaultValue="active"
+                                    className="select w-full select-primary focus:outline-0"
+                                >
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end mt-4 gap-2">
+                            <button type="button" onClick={closeModal} className="btn">Cancel</button>
+                            <button type="submit" className="btn btn-primary">Submit</button>
+                        </div>
+                    </form>
                 </div>
             </dialog>
-            <br />
+
             <div className="overflow-x-auto rounded-box border border-base-content/5 bg-base-100">
                 <table className="table">
-                    {/* head */}
                     <thead>
                         <tr className="bg-primary">
                             <th>Sl</th>
+                            <th>Picture</th>
                             <th>Name</th>
-                            {/* <th>department Head</th> */}
                             <th>Email</th>
                             <th>Phone</th>
                             <th>Action</th>
@@ -200,27 +310,52 @@ export default function Department() {
                         {departments.map((department, i) => (
                             <tr key={department.id}>
                                 <td>{i + 1}</td>
+                                <td>
+                                    {department.picture ? (
+                                        <div className="avatar">
+                                            <div className="w-12 h-12 rounded-full">
+                                                <img src={`${baseUrl}/public/${department.picture}`} alt={department.name} />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="avatar placeholder">
+                                            <div className="bg-neutral text-neutral-content rounded-full w-12">
+                                                <span className="text-xs">{department.name.charAt(0)}</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </td>
                                 <td>{department.name}</td>
-                                {/* <td>{department?.headDoctor?.name}</td> */}
                                 <td>{department.email}</td>
                                 <td>{department.phone}</td>
                                 <td>
-                                    <button onClick={() => modelOpen(department.id)} className="btn btn-sm btn-info me-1"><i className="fa-solid fa-pen-to-square"></i></button>
-                                    <button className="btn btn-sm btn-error me-1"><i className="fa-solid fa-trash"></i></button>
-
+                                    <button 
+                                        onClick={() => openModal(department.id)} 
+                                        className="btn btn-sm btn-info me-1"
+                                    >
+                                        <i className="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDelete(department.id)} 
+                                        className="btn btn-sm btn-error"
+                                    >
+                                        <i className="fa-solid fa-trash"></i>
+                                    </button>
                                 </td>
                             </tr>
                         ))}
-
-
+                        {departments.length === 0 && (
+                            <tr>
+                                <td colSpan="6" className="text-center py-4">No departments found</td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>
 
-            <div className="mt-4">
-                <Pagination />
-            </div>
-
+            {paginationData && (
+                <Pagination paginationData={paginationData} />
+            )}
         </AuthLayout>
     )
 }
